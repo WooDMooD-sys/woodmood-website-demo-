@@ -566,7 +566,7 @@ a.contact-card:hover { border-color: var(--orange); }
 .aides-disclaimer { max-width: 900px; margin: 0 auto; font-size: 13px; font-style: italic; color: rgba(0,0,0,0.5); text-align: center; line-height: 1.7; }
 .aides-alert { font-weight: normal; }
 .aides-alert svg circle:first-child { fill: none; stroke: var(--orange); stroke-width: 3; }
-.exemple-photos--duo { grid-template-columns: 1.888fr 1.378fr; align-items: start; } 
+.exemple-photos--duo { grid-template-columns: 0.75fr 1.378fr; align-items: start; } 
 .exemple-photos--duo img { height: auto; object-fit: contain; }
 .exemple-proof:has(.exemple-review:not(.is-placeholder)) { grid-template-columns: 1.4fr 1fr; align-items: start; }
 .exemple-review:not(.is-placeholder) p:not(.exemple-review-stars) { font-size: 14px; }
