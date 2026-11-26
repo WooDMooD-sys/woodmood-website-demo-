@@ -32,4 +32,5 @@ puis ouvrir http://localhost:3002/woodmood-website-demo-/
 - Les pages (textes, prix…) sont chiffrées : sans le mot de passe, on ne peut pas les lire, même dans le code du dépôt.
 - Les photos et vidéos ne sont pas chiffrées : quelqu'un qui connaît leur adresse exacte peut les ouvrir.
 - Une fois le mot de passe tapé, le navigateur s'en souvient.
-- Le formulaire de contact n'envoie rien (mode démo) ; le bloc-notes de modifications est retiré.
+- Le formulaire de contact n'envoie rien (mode démo).
+- Les brouillons sont retirés automatiquement (bandeau « Brouillon », notes internes, bloc-notes, blocs « à fournir », menu Blog vide, liens vers des pages inexistantes, fichiers inutilisés). Si un nouveau brouillon apparaît dans `nouveau-site`, `build.mjs` s'arrête et indique la page concernée.

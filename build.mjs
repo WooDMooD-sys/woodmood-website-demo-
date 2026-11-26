@@ -7,7 +7,8 @@
 // small password screen that decrypts it in the browser. Once the password is typed, it is
 // remembered in that browser, so it is asked only once.
 // Photos, videos, CSS and JS are copied as they are (not encrypted).
-// Demo changes: notes tool removed, contact form sends nothing, links prefixed with BASE.
+// Demo changes: drafts removed (see removeDrafts; the build stops if any draft is left),
+// contact form sends nothing, only used files published, links prefixed with BASE.
 import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
@@ -45,6 +46,53 @@ const rebase = (text) =>
   text
     .replace(/(\s[\w:-]+=")\/(?!\/)/g, `$1${BASE}`) // href="/x", src="/x", data-full="/x"…
     .replace(/url\((['"]?)\/(?!\/)/g, `url($1${BASE}`);
+
+// ── Drafts out: the demo is shown to reviewers and clients ──
+const LIVE = "https://connectwoodmood.com";
+const COMING_SOON = (what) => `<section class="band band--white">
+      <div class="band-inner coming-soon">
+        <p class="coming-soon-title">Exemples à venir</p>
+        <p class="lead">Nos premiers exemples d’installation dans des ${what} seront présentés ici prochainement.</p>
+      </div>
+    </section>`;
+
+function removeDrafts(rel, html) {
+  html = html
+    .replace(/^[ \t]*<!--[\s\S]*?-->[ \t]*\r?\n/gm, "") // internal notes on their own lines
+    .replace(/<!--[\s\S]*?-->/g, "")                   // any other comment
+    .replace(/^[ \t]*<script src="\/js\/notes\.js"><\/script>\r?\n/m, "")
+    .replace(/^[ \t]*<div class="preview-ribbon">[\s\S]*?<\/div>\r?\n/m, "")
+    // Blog menu: nothing in it yet
+    .replace(/[ \t]*<div class="nav-item">\s*<span class="nav-link"[^>]*data-section="\/blog">Blog<\/span>\s*<div class="nav-sub">[\s\S]*?<\/div>\s*<\/div>\r?\n/, "")
+    // links to pages that don't exist in the new site
+    .replace(/^[ \t]*<a href="\/faq">FAQ<\/a>\r?\n/gm, "")
+    .replace(/^[ \t]*<a class="avis-discover" href="\/temoignages">[\s\S]*?<\/a>\r?\n/m, "")
+    .replace(/href="\/poele-a-bois-automatique"/g, 'href="/#produit"')
+    .replace(/href="\/(mentions-legales|politique-de-confidentialite)"/g, `href="${LIVE}/$1"`)
+    // unfinished blocks
+    .replace(/^[ \t]*<div class="todo-media[^"]*">[\s\S]*?<\/div>\r?\n/gm, "");
+  if (rel === "votre-projet/atelier.html") {
+    html = html
+      .replace(/^[ \t]*<p class="page-intro">Ils ont installé[^<]*<\/p>\r?\n/m, "")
+      .replace(/<section class="band band--white">\s*<div class="band-inner exemple">\s*<div class="exemple-head">\s*<h2 class="section-title">\[[\s\S]*?<\/section>/,
+        COMING_SOON("ateliers"));
+  }
+  return html;
+}
+
+// Fails the build if something that looks like a draft is still in a page.
+const DRAFT_SIGNS = [/brouillon/i, /à compléter/i, /à fournir/i, /à reprendre/i, /à sélectionner/i, /sous-rubriques à venir/i,
+  /class="[^"]*\btodo/, /is-placeholder|placeholder-photo/, /preview-ribbon"/, /<!--/, /notes\.js/, /\[[^\]<]*(à |TODO|XXX)[^\]<]*\]/i];
+function checkDrafts(rel, html, problems) {
+  for (const re of DRAFT_SIGNS) {
+    const m = html.match(re);
+    if (m) problems.push(`${rel} : « ${html.slice(Math.max(0, m.index - 40), m.index + 60).replace(/\s+/g, " ").trim()} »`);
+  }
+  for (const [, link] of html.matchAll(/(?:href|src|data-(?!section=)[\w-]+)="\/(?!\/)([^"#?]*)/g)) {
+    const ok = !link || [link, link + ".html", link + "/index.html"].some((p) => fs.existsSync(path.join(SRC, p)) && !SKIP(p));
+    if (!ok) problems.push(`${rel} : lien vers une page qui n'existe pas : /${link}`);
+  }
+}
 
 async function deriveKey(password) {
   const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
@@ -139,35 +187,49 @@ const notFound = `<!DOCTYPE html>
 </head><body><div><p>Cette page n'existe pas dans la démo.</p><p><a href="${BASE}">Retour à l'accueil</a></p></div></body></html>
 `;
 
-const password = await getPassword();
-if (!password) { console.error("Aucun mot de passe : rien n'a été construit."); process.exit(1); }
-const key = await deriveKey(password);
+// 1. Clean every page and check nothing draft-like is left (before asking for the password)
+const all = list(SRC).filter((r) => !SKIP(r));
+const pagesHtml = new Map();
+const problems = [];
+for (const rel of all.filter((r) => r.endsWith(".html"))) {
+  const html = removeDrafts(rel, fs.readFileSync(path.join(SRC, rel), "utf8"));
+  checkDrafts(rel, html, problems);
+  pagesHtml.set(rel, html);
+}
+if (problems.length) {
+  console.error("Brouillons encore présents — rien n'a été construit :\n- " + problems.join("\n- "));
+  process.exit(1);
+}
 
-fs.rmSync(OUT, { recursive: true, force: true });
-let pages = 0, files = 0;
-for (const rel of list(SRC).filter((r) => !SKIP(r))) {
-  const dest = path.join(OUT, rel);
-  fs.mkdirSync(path.dirname(dest), { recursive: true });
+// 2. Other files: CSS without comments, contact form in demo mode
+const assets = new Map();
+for (const rel of all.filter((r) => !r.endsWith(".html"))) {
   let buf = fs.readFileSync(path.join(SRC, rel));
-  if (rel.endsWith(".html")) {
-    const html = rebase(buf.toString("utf8").replace(/^[ \t]*<script src="\/js\/notes\.js"><\/script>\r?\n/m, ""));
-    fs.writeFileSync(dest, lockedPage(await encrypt(key, html)));
-    pages++;
-    continue;
-  }
   if (rel === "js/contact.js") {
     const before = "fetch(form.action, { method: 'POST', mode: 'no-cors', body: data })";
     const text = buf.toString("utf8");
     if (!text.includes(before)) throw new Error("contact.js a changé : mettre à jour le patch démo dans build.mjs");
-    buf = Buffer.from(text.replace(before,
-      "/* DÉMO : rien n'est envoyé au vrai Google Form, on affiche directement la confirmation */\n    Promise.resolve(data)"));
+    buf = Buffer.from(text.replace(before, "Promise.resolve(data)")); // demo: nothing is sent
   } else if (rel.endsWith(".css")) {
-    buf = Buffer.from(rebase(buf.toString("utf8")));
+    buf = Buffer.from(rebase(buf.toString("utf8").replace(/\/\*[\s\S]*?\*\//g, "")));
   }
-  fs.writeFileSync(dest, buf);
-  files++;
+  assets.set(rel, buf);
 }
-fs.writeFileSync(path.join(OUT, "404.html"), notFound);
-fs.writeFileSync(path.join(OUT, "robots.txt"), "User-agent: *\nDisallow: /\n");
-fs.writeFileSync(path.join(OUT, ".nojekyll"), "");
-console.log(`OK : ${pages} pages chiffrées, ${files} fichiers copiés dans docs/`);
+// only publish files a page actually uses (+ browser icons)
+const usedText = [...pagesHtml.values(), ...[...assets].filter(([r]) => /\.(css|js)$/.test(r)).map(([, b]) => b.toString("utf8"))].join("\n");
+const ALWAYS = new Set(["favicon.ico", "apple-touch-icon.png", "icon-192.png", "icon-512.png"]);
+const used = (rel) => ALWAYS.has(rel) || usedText.includes("/" + rel) || usedText.includes("'" + rel) || usedText.includes('"' + rel);
+
+// 3. Encrypt and write
+const password = await getPassword();
+if (!password) { console.error("Aucun mot de passe : rien n'a été construit."); process.exit(1); }
+const key = await deriveKey(password);
+fs.rmSync(OUT, { recursive: true, force: true });
+const write = (rel, data) => { const d = path.join(OUT, rel); fs.mkdirSync(path.dirname(d), { recursive: true }); fs.writeFileSync(d, data); };
+for (const [rel, html] of pagesHtml) write(rel, lockedPage(await encrypt(key, rebase(html))));
+let files = 0, skipped = 0;
+for (const [rel, buf] of assets) { if (used(rel)) { write(rel, buf); files++; } else skipped++; }
+write("404.html", notFound);
+write("robots.txt", "User-agent: *\nDisallow: /\n");
+write(".nojekyll", "");
+console.log(`OK : ${pagesHtml.size} pages chiffrées, ${files} fichiers copiés, ${skipped} fichiers inutilisés laissés de côté (docs/)`);
