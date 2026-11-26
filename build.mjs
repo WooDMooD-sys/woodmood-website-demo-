@@ -1,7 +1,10 @@
 // Builds the password-protected demo for GitHub Pages into docs/.
-// Source: ../Site Internet/nouveau-site (only read, never changed).
+// Source: site/ (the editable site, kept on this laptop only: never sent to GitHub).
 //
-//   node build.mjs            (asks for the password; or put it in a local file .demo-password)
+//   node build.mjs     (or double-click publier.cmd, which also pushes to GitHub)
+//
+// Password: read from mot-de-passe.txt (local only, never sent to GitHub). If that file is
+// missing, the script asks for the password and saves it there.
 //
 // Every page is encrypted (AES-256-GCM, key from the password with PBKDF2) and replaced by a
 // small password screen that decrypts it in the browser. Once the password is typed, it is
@@ -20,17 +23,21 @@ const ITERATIONS = 600000;
 const SALT = "d29vZG1vb2QtZGVtby1zaXRlLXNhbHQtdjE="; // fixed so a remembered password survives rebuilds
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const SRC = path.resolve(here, "../Site Internet/nouveau-site");
+const SRC = path.join(here, "site");
 const OUT = path.join(here, "docs");
+const PASSWORD_FILE = path.join(here, "mot-de-passe.txt");
 const SKIP = (rel) => path.basename(rel).startsWith("_") || rel === "js/notes.js";
 
 async function getPassword() {
   if (process.env.DEMO_PASSWORD) return process.env.DEMO_PASSWORD;
-  const file = path.join(here, ".demo-password");
-  if (fs.existsSync(file)) return fs.readFileSync(file, "utf8").trim();
+  if (fs.existsSync(PASSWORD_FILE)) {
+    const pw = fs.readFileSync(PASSWORD_FILE, "utf8").replace(/^﻿/, "").trim(); // Notepad may add a BOM
+    if (pw) return pw;
+  }
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   const pw = (await rl.question("Mot de passe de la démo : ")).trim();
   rl.close();
+  if (pw) { fs.writeFileSync(PASSWORD_FILE, pw); console.log("Mot de passe enregistré dans mot-de-passe.txt (reste sur cet ordinateur)."); }
   return pw;
 }
 

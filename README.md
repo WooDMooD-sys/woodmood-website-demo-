@@ -1,36 +1,28 @@
 # WooDMooD – site de démo (protégé par mot de passe)
 
-Version de démonstration du nouveau site, publiée sur GitHub Pages :
+Démo du nouveau site, pour le prestataire et les clients :
 https://woodmood-sys.github.io/woodmood-website-demo-/
 
-Le site de travail reste dans `Site Internet/nouveau-site` sur l'ordinateur ; ce dépôt ne contient
-que la version publiée (`docs/`), dont chaque page est chiffrée avec le mot de passe de la démo.
+## Au quotidien
 
-## Mettre à jour la démo
+1. **Modifier** les pages dans le dossier `site\` (sur l'ordinateur uniquement).
+2. **Voir le résultat** : double-cliquer `voir-en-local.cmd` (ouvre http://localhost:3002/). Laisser la fenêtre noire ouverte pendant la consultation.
+3. **Publier** : double-cliquer `publier.cmd`. Le site est chiffré avec le mot de passe de `mot-de-passe.txt`, puis envoyé sur GitHub. En ligne 1 à 2 minutes plus tard (Ctrl+F5 si l'ancienne version s'affiche).
 
-Depuis ce dossier :
+**Changer le mot de passe** : modifier `mot-de-passe.txt` dans le Bloc-notes, puis double-cliquer `publier.cmd`.
 
-```
-node build.mjs
-git add -A
-git commit -m "Mise à jour de la démo"
-git push
-```
+## Ce qui va sur GitHub, et ce qui n'y va pas
 
-`build.mjs` demande le mot de passe (ou le lit dans un fichier local `.demo-password`, jamais envoyé sur GitHub).
-Pour changer le mot de passe : relancer `node build.mjs` avec le nouveau, puis commit + push.
-
-## Voir la démo en local
-
-```
-node preview.mjs
-```
-puis ouvrir http://localhost:3002/woodmood-website-demo-/
-
-## Bon à savoir
-
-- Les pages (textes, prix…) sont chiffrées : sans le mot de passe, on ne peut pas les lire, même dans le code du dépôt.
+- `site\` (le site lisible) et `mot-de-passe.txt` **restent sur cet ordinateur**. Ils ne sont jamais envoyés sur GitHub, car le dépôt est public.
+- Sur GitHub, il n'y a que `docs\` : les pages chiffrées, illisibles sans le mot de passe.
 - Les photos et vidéos ne sont pas chiffrées : quelqu'un qui connaît leur adresse exacte peut les ouvrir.
-- Une fois le mot de passe tapé, le navigateur s'en souvient.
-- Le formulaire de contact n'envoie rien (mode démo).
-- Les brouillons sont retirés automatiquement (bandeau « Brouillon », notes internes, bloc-notes, blocs « à fournir », menu Blog vide, liens vers des pages inexistantes, fichiers inutilisés). Si un nouveau brouillon apparaît dans `nouveau-site`, `build.mjs` s'arrête et indique la page concernée.
+- `site\` n'est sauvegardé nulle part ailleurs : pensez à en garder une copie (clé USB, Drive…).
+
+## Retiré automatiquement de la démo
+
+Bandeau « Brouillon », notes internes, bloc-notes, blocs « à fournir », menu Blog vide, liens vers des pages qui n'existent pas encore, fichiers inutilisés. Le formulaire de contact n'envoie rien.
+Si un nouveau brouillon apparaît dans `site\`, la publication s'arrête et indique la page concernée.
+
+## Pour une autre session Claude
+
+Tout est expliqué dans `CLAUDE.md` (lu automatiquement par Claude quand il travaille dans ce dossier).
